@@ -1,1 +1,2 @@
-all: javac Talk.java && java Talk.class
+all: 
+	javac Talk.java && java Talk
