@@ -71,13 +71,45 @@ public class Talk
 		}else throw new Exception("Argument " + args[0] + " is not recognized.");
 		return 0;
 	}
-
+	static class ListenToThings extends Thread {
+		public BufferedReader in;
+		public String message;
+		public ListenToThings(BufferedReader b, String m){
+			in = b;
+			message = m;
+		}
+		public void run(){
+			try{
+				while(true){
+					if(in.ready()){
+						message = in.readLine();
+						String current = "";
+						int c = System.in.read();
+						while(c != -1){
+							current.concat(String.valueOf(c));
+						}
+						System.out.println(message);
+						System.out.print(current);
+					}
+				}
+			}catch (IOException e){
+				System.out.println("Read failed");
+				System.exit(1);
+			}
+		}
+	}
 	private static int clientMode(){
 		String message = null;
+		String remote_message = null;
+		BufferedReader remote_in = null;
 		try{
 			Socket socket = new Socket(host, port);
 			BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+			remote_in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 			PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+			
+			(new ListenToThings(remote_in, remote_message)).start();
+
 			while(true){
 				message = in.readLine();
 				out.println(message);
@@ -92,8 +124,56 @@ public class Talk
 		return 0;
 	}
 
-	private static int serverMode(){
+	private static Socket serverNegotiateConnection(){
+		ServerSocket server = null;
+		Socket client = null;
+		try{
+			server = new ServerSocket(port);
+			System.out.println("Server listening on port " + port);
+		}catch(IOException e){
+			System.out.println("Server unable to listen on specified port");
+			System.exit(1);
+		}
+		try{
+			client = server.accept();
+			System.out.println("Server accepted connection from " + client.getInetAddress());
+		}catch(IOException e){
+			System.out.println("Accept failed on port " + port);
+			System.exit(1);
+		}
+		return client;
+	}
 
+	private static int serverMode(){
+		BufferedReader remote_in = null;
+		PrintWriter remote_out = null;
+		BufferedReader sysInBuffer = null;
+		String message = null;
+		String remote_message = null;
+		Socket client = null;
+
+		client = serverNegotiateConnection();
+
+		try{
+			remote_in = new BufferedReader(new InputStreamReader(client.getInputStream()));
+			sysInBuffer = new BufferedReader(new InputStreamReader(System.in));
+			remote_out = new PrintWriter(client.getOutputStream(), true);
+		}catch(IOException e){
+			System.out.println("Couldn't get an inputStream from the client");
+			System.exit(1);
+		}
+
+
+		(new ListenToThings(remote_in, remote_message)).start();
+		try{
+			while(true){
+				message = sysInBuffer.readLine();
+				remote_out.println(message);
+			}
+		}catch (IOException e){
+			System.out.println("Read failed");
+			System.exit(1);
+		}
 		return 0;
 	}
 
