@@ -81,15 +81,11 @@ public class Talk
 		public void run(){
 			try{
 				while(true){
+
 					if(in.ready()){
 						message = in.readLine();
-						String current = "";
-						int c = System.in.read();
-						while(c != -1){
-							current.concat(String.valueOf(c));
-						}
-						System.out.println(message);
-						System.out.print(current);
+						System.out.println();
+						System.out.println("[remote]: " + message);
 					}
 				}
 			}catch (IOException e){
@@ -101,8 +97,7 @@ public class Talk
 	private static int clientMode(){
 		String message = null;
 		String remote_message = null;
-		BufferedReader remote_in = null;
-		try{
+		BufferedReader remote_in = null; try{
 			Socket socket = new Socket(host, port);
 			BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
 			remote_in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
