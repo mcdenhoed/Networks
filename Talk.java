@@ -2,8 +2,7 @@ import java.io.*;
 import java.net.*;
 import java.lang.String;
 import java.lang.Exception;
-public class Talk
-{
+public class Talk{
 	private static enum Mode{CLIENT, SERVER, AUTO, HELP}
 	private static Mode mode;
 	private static String host = "127.0.0.1";
@@ -81,12 +80,13 @@ public class Talk
 		public void run(){
 			try{
 				while(true){
-
-					if(in.ready()){
 						message = in.readLine();
+						if(message == null){
+							System.out.println("Remote party disconnected. Exiting.");
+							System.exit(1);
+						}
 						System.out.println();
 						System.out.println("[remote]: " + message);
-					}
 				}
 			}catch (IOException e){
 				System.out.println("Read failed");
@@ -97,24 +97,33 @@ public class Talk
 	private static int clientMode(){
 		String message = null;
 		String remote_message = null;
-		BufferedReader remote_in = null; try{
+		BufferedReader remote_in = null; 
+		try{
 			Socket socket = new Socket(host, port);
 			BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
 			remote_in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 			PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
 			
 			(new ListenToThings(remote_in, remote_message)).start();
-
+			System.out.println("Connected to " + socket.getInetAddress());
 			while(true){
 				message = in.readLine();
-				out.println(message);
+				if(!message.replaceAll("\\s+", "").equals("STATUS"))
+					out.println(message);
+				else
+					printStatus(socket);
 			}
 		}catch(UnknownHostException e){
 			System.out.println("Unknown Host:" + host);
 			System.exit(1);
 		}catch(IOException e){
 			System.out.println("Client unable to communicate with server");
-			System.exit(1);
+			if(mode == Mode.CLIENT){
+				System.exit(1);
+			}
+			else if(mode == Mode.AUTO){
+				return 1;
+			}
 		}
 		return 0;
 	}
@@ -163,7 +172,10 @@ public class Talk
 		try{
 			while(true){
 				message = sysInBuffer.readLine();
-				remote_out.println(message);
+				if(!message.replaceAll("\\s+", "").equals("STATUS"))
+					remote_out.println(message);
+				else
+					printStatus(client);
 			}
 		}catch (IOException e){
 			System.out.println("Read failed");
@@ -173,12 +185,32 @@ public class Talk
 	}
 
 	private static int autoMode(){
-
+		if(clientMode() != 0) serverMode();
 		return 0;
 	}
 
+	private static void printStatus(Socket s){
+		System.out.println("Local IP Address:\t" + s.getLocalAddress());
+		System.out.println("Remote IP Address:\t" + s.getInetAddress());
+		System.out.println("Local Port Number:\t" + s.getLocalPort());
+		System.out.println("Remote Port Number:\t" + s.getPort());
+		return;
+	}
 	private static int help(){
-			
+		System.out.println("Mark DenHoed (he's the author!)\n");
+		System.out.println("Program usage:\n");
+		System.out.println("Talk -h [hostname | IPaddress] [-p portnumber]");
+		System.out.println("The program behaves as a client connecting to [hostname | IPaddress] on port portnumber. If a server is not available the program exits. Note: portnumber in this case refers to the server and not to the client.");
+		System.out.println();
+		System.out.println("Talk -s [-p portnumber]");
+		System.out.println("The program behaves as a server listening for connections on port portnumber. If the port is not available for use, the program exits.");
+		System.out.println();
+		System.out.println("Talk -a [hostname|IPaddress] [-p portnumber]");
+		System.out.println("The program enters ``auto’’ mode. When in auto mode, your program should start as a client attempting to communicate with hostname|IPaddress on port portnumber. If a server is not found, the program detects this condition and start behaving as a server listening for connections on port portnumber.");
+		System.out.println();
+		System.out.println("Talk -help");
+		System.out.println("The program prints this message.");
+
 		return 0;
 	}
 	public static void main(String[] args){
