@@ -1,0 +1,14 @@
+\documentclass[letterpaper, 12pt]{article}
+\usepackage[margin=1in]{geometry}
+
+\author{Mark DenHoed}
+\title{Networks Project 1}
+\date{\today}
+\begin{document}
+\maketitle
+
+\section*{Approach and Challenges}
+My approach on this project was very simple. I was provided with a one-way chat client programmed in Java. It was fairly simple to then convert this into a two-way chat client (by creating the relevant \verb+InputStreamBuffer+s and \verb+PrintWriter+s). The main challenge once this was completed was to make my code non-blocking. This was easily done by putting one direction of communication in its own thread.
+\section*{Feedback}
+This project was fairly easy, especially since source for a 1-way-talk program was provided. It served as a good re-introduction to Java.
+\end{document}
