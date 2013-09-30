@@ -1,8 +1,16 @@
 import java.net.InetSocketAddress;
-
+import edu.utulsa.unet.*;
 
 public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 
+	private UDPSocket socket;
+	private InetSocketAddress receiver;
+	private int mode;
+	private long windowSize;
+	private long timeout;
+	private String fileName;
+	private int localPort;
+	private int remotePort;
 	/**
 	 * @param args
 	 */
@@ -13,38 +21,32 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 
 	@Override
 	public String getFilename() {
-		// TODO Auto-generated method stub
-		return null;
+		return fileName;
 	}
 
 	@Override
 	public int getLocalPort() {
-		// TODO Auto-generated method stub
-		return 0;
+		return localPort;
 	}
 
 	@Override
 	public int getMode() {
-		// TODO Auto-generated method stub
-		return 0;
+		return mode;
 	}
 
 	@Override
 	public long getModeParameter() {
-		// TODO Auto-generated method stub
-		return 0;
+		return windowSize;
 	}
 
 	@Override
 	public InetSocketAddress getReceiver() {
-		// TODO Auto-generated method stub
-		return null;
+		return receiver;
 	}
 
 	@Override
 	public long getTimeout() {
-		// TODO Auto-generated method stub
-		return 0;
+		return timeout;
 	}
 
 	@Override
@@ -55,38 +57,38 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 
 	@Override
 	public void setFilename(String arg0) {
-		// TODO Auto-generated method stub
-		
+		fileName = arg0;
+		return;
 	}
 
 	@Override
 	public boolean setLocalPort(int arg0) {
-		// TODO Auto-generated method stub
-		return false;
+		localPort = arg0;
+		return true;
 	}
 
 	@Override
 	public boolean setMode(int arg0) {
-		// TODO Auto-generated method stub
-		return false;
+		mode = arg0;
+		return true;
 	}
 
 	@Override
 	public boolean setModeParameter(long arg0) {
-		// TODO Auto-generated method stub
-		return false;
+		windowSize = arg0;
+		return true;
 	}
 
 	@Override
 	public boolean setReceiver(InetSocketAddress arg0) {
-		// TODO Auto-generated method stub
-		return false;
+		receiver = arg0;
+		return true;
 	}
 
 	@Override
 	public boolean setTimeout(long arg0) {
-		// TODO Auto-generated method stub
-		return false;
+		timeout = arg0;
+		return true;
 	}
 
 }

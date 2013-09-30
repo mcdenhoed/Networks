@@ -1,6 +1,8 @@
+import edu.utulsa.unet.*;
 
 public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI{
 
+	private UDPSocket socket;
 	/**
 	 * @param args
 	 */
