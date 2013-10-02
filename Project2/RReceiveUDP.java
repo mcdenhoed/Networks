@@ -1,68 +1,93 @@
+import java.net.InetSocketAddress;
+
 import edu.utulsa.unet.*;
 
 public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI{
 
 	private UDPSocket socket;
+	private InetSocketAddress receiver;
+	private int mode;
+	private long windowSize;
+	private long timeout;
+	private String fileName;
+	private int localPort;
+	private int remotePort;
+
+	
 	/**
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		// TODO Auto-generated method stub
-
+		RReceiveUDP receiver = new RReceiveUDP();
+		receiver.setMode(2);
+		receiver.setModeParameter(512);
+		receiver.setFilename("less_important.txt");
+		receiver.setLocalPort(32456);
+		receiver.receiveFile();
 	}
 
 	@Override
 	public String getFilename() {
-		// TODO Auto-generated method stub
-		return null;
+		return fileName;
 	}
 
 	@Override
 	public int getLocalPort() {
-		// TODO Auto-generated method stub
-		return 0;
+		return localPort;
 	}
 
 	@Override
 	public int getMode() {
-		// TODO Auto-generated method stub
-		return 0;
+		return mode;
 	}
 
 	@Override
 	public long getModeParameter() {
-		// TODO Auto-generated method stub
-		return 0;
+		return windowSize;
 	}
 
 	@Override
 	public boolean receiveFile() {
-		// TODO Auto-generated method stub
-		return false;
+		if(mode == 0)
+			stopAndWaitReceive();
+		else if(mode == 1)
+			slidingWindowReceive();
+		else return false;
+		return true;
 	}
 
-	@Override
-	public void setFilename(String arg0) {
+	private void stopAndWaitReceive() {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private void slidingWindowReceive() {
 		// TODO Auto-generated method stub
 		
 	}
 
 	@Override
+	public void setFilename(String arg0) {
+		fileName = arg0;
+		return;
+	}
+
+	@Override
 	public boolean setLocalPort(int arg0) {
-		// TODO Auto-generated method stub
-		return false;
+		localPort = arg0;
+		return true;
 	}
 
 	@Override
 	public boolean setMode(int arg0) {
-		// TODO Auto-generated method stub
-		return false;
+		mode = arg0;
+		return true;
 	}
 
 	@Override
 	public boolean setModeParameter(long arg0) {
-		// TODO Auto-generated method stub
-		return false;
+		windowSize = arg0;
+		return true;
 	}
 
 }

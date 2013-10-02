@@ -15,8 +15,15 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		// TODO Auto-generated method stub
-
+		//Papa's test code
+		RSendUDP sender = new RSendUDP();
+		sender.setMode(2);
+		sender.setModeParameter(512);
+		sender.setTimeout(10000);
+		sender.setFilename("important.txt");
+		sender.setLocalPort(23456);
+		sender.setReceiver(new InetSocketAddress("172.17.34.56", 32456));
+		sender.sendFile();
 	}
 
 	@Override
@@ -51,8 +58,22 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 
 	@Override
 	public boolean sendFile() {
+		if(mode == 0)
+			stopAndWaitSend();
+		else if(mode == 1)
+			slidingWindowSend();
+		else return false;
+		return true;
+	}
+
+	private void stopAndWaitSend() {
 		// TODO Auto-generated method stub
-		return false;
+		
+	}
+
+	private void slidingWindowSend() {
+		// TODO Auto-generated method stub
+		
 	}
 
 	@Override
