@@ -1,5 +1,13 @@
+import java.io.BufferedInputStream;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import edu.utulsa.unet.*;
+import java.util.ArrayList;
+
+import edu.utulsa.unet.UDPSocket;
 
 public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 
@@ -7,7 +15,7 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 	private InetSocketAddress receiver;
 	private int mode;
 	private long windowSize;
-	private long timeout;
+	private long timeout = 1000;
 	private String fileName;
 	private int localPort;
 	private int remotePort;
@@ -58,24 +66,86 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 
 	@Override
 	public boolean sendFile() {
-		if(mode == 0)
-			stopAndWaitSend();
-		else if(mode == 1)
-			slidingWindowSend();
-		else return false;
+		
+		try {
+			BufferedInputStream fileBuffer = new BufferedInputStream(new FileInputStream(fileName));
+			socket = new UDPSocket(localPort);
+			socket.setSoTimeout((int)timeout);
+			if(mode == 0)
+				stopAndWaitSend(fileBuffer, socket);
+			else if(mode == 1)
+				slidingWindowSend(fileBuffer, socket);
+			fileBuffer.close();
+		} catch (FileNotFoundException e) {
+			System.out.println("Please select an actual file.");
+		} catch (IOException e) {
+			System.out.println("IO Error.");
+		}
+
 		return true;
 	}
 
-	private void stopAndWaitSend() {
+	private void stopAndWaitSend(BufferedInputStream file, UDPSocket socket) throws IOException {
+		//ArrayList<Byte> buffer = new ArrayList<Byte>();
+		byte[] buffer = new byte[(int) windowSize];
+		byte seqNum = 0;
+		boolean acked = true;
+		int transmit = (int)windowSize;
+		do{
+			if(acked){
+				int result = file.read(buffer, 2, (int)windowSize - 2);
+				byte[] header = new byte[2];
+				if(result < windowSize - 2){
+					header = generatePacketHeader(false, true, seqNum);
+					buffer[0] = header[0];
+					buffer[1] = header[1];
+					if(result < 0)
+						transmit = 2;
+					else
+						transmit = result+2;
+				}else{
+					header = generatePacketHeader(false, false, seqNum);
+					buffer[0] = header[0];
+					buffer[1] = header[1];
+					transmit = (int)windowSize;
+				}
+			}
+			acked = false;
+			socket.send(new DatagramPacket(buffer, transmit,receiver));
+			socket.receive(new DatagramPacket(buffer,2));
+			if(ackPacket(buffer)){
+				acked = true;
+				seqNum++;
+			}
+			
+				
+		}while(true);
+	}
+
+	private void slidingWindowSend(BufferedInputStream file, UDPSocket socket) throws IOException{
 		// TODO Auto-generated method stub
 		
 	}
-
-	private void slidingWindowSend() {
-		// TODO Auto-generated method stub
+	
+	private byte[] generatePacketHeader(boolean ack, boolean finish, byte sequence){
+		byte packetFlags = 0;
+		if(ack)
+			packetFlags += 1;
+		if(finish)
+			packetFlags += 2;
 		
+		byte[] header = {packetFlags, sequence};
+		return header;
 	}
 
+	private boolean ackPacket(byte[] header){
+		return (header[0]&1)==0;
+	}
+	
+	private boolean finishPacket(byte[] header){
+		return (header[0]&2)==0;
+	}
+	
 	@Override
 	public void setFilename(String arg0) {
 		fileName = arg0;
@@ -96,7 +166,9 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 
 	@Override
 	public boolean setModeParameter(long arg0) {
+		if(arg0 > 2)
 		windowSize = arg0;
+		else System.exit(-1);
 		return true;
 	}
 
