@@ -1,6 +1,10 @@
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.SocketException;
 
-import edu.utulsa.unet.*;
+import edu.utulsa.unet.UDPSocket;
 
 public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI{
 
@@ -48,15 +52,37 @@ public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI{
 
 	@Override
 	public boolean receiveFile() {
+		FileOutputStream output = null;
+		try {
+			
+			output = new FileOutputStream(fileName);
+			socket = new UDPSocket(localPort);
+			socket.setSoTimeout((int)timeout);
 		if(mode == 0)
-			stopAndWaitReceive();
+			stopAndWaitReceive(output, socket);
 		else if(mode == 1)
 			slidingWindowReceive();
 		else return false;
-		return true;
+		
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (SocketException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally{
+			try {
+				output.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return false;
+
 	}
 
-	private void stopAndWaitReceive() {
+	private void stopAndWaitReceive(FileOutputStream output, UDPSocket socket) {
 		// TODO Auto-generated method stub
 		
 	}
@@ -66,6 +92,17 @@ public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI{
 		
 	}
 
+	private byte[] generatePacketHeader(boolean ack, boolean finish, byte sequence){
+		byte packetFlags = 0;
+		if(ack)
+			packetFlags += 1;
+		if(finish)
+			packetFlags += 2;
+		
+		byte[] header = {packetFlags, sequence};
+		return header;
+	}
+	
 	@Override
 	public void setFilename(String arg0) {
 		fileName = arg0;
