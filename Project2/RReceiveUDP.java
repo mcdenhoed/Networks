@@ -24,7 +24,7 @@ public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI{
 	 */
 	public static void main(String[] args) {
 		RReceiveUDP receiver = new RReceiveUDP();
-		receiver.setMode(2);
+		receiver.setMode(0);
 		receiver.setModeParameter(512);
 		receiver.setFilename("less_important.txt");
 		receiver.setLocalPort(32456);
@@ -61,11 +61,11 @@ public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI{
 			socket.setSoTimeout((int)timeout);
 			MTU = socket.getReceiveBufferSize();
 			receiver = socket.getInetAddress();
-		if(mode == 0)
-			stopAndWaitReceive(output, socket);
-		else if(mode == 1)
-			slidingWindowReceive(output, socket);
-		else return false;
+			if(mode == 0)
+				stopAndWaitReceive(output, socket);
+			else if(mode == 1)
+				slidingWindowReceive(output, socket);
+			else return false;
 		
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
@@ -93,6 +93,7 @@ public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI{
 		byte[] buffer = new byte[MTU];
 		DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
 		do{
+			System.out.println("Waiting...");
 			socket.receive(packet);
 			output.write(buffer, 2, packet.getLength()-2);
 			if(finishPacket(buffer)){

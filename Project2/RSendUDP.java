@@ -1,10 +1,12 @@
 import java.io.BufferedInputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.nio.file.Path;
 import java.util.ArrayList;
 
 import edu.utulsa.unet.UDPSocket;
@@ -19,7 +21,7 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 	private String fileName;
 	private int localPort;
 	private int remotePort;
-	private int MTU;
+	private int MTU = 1500;
 	/**
 	 * @param args
 	 */
@@ -30,7 +32,7 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 		sender.setTimeout(10000);
 		sender.setFilename("important.txt");
 		sender.setLocalPort(23456);
-		sender.setReceiver(new InetSocketAddress("172.17.34.56", 32456));
+		sender.setReceiver(new InetSocketAddress("localhost", 32456));
 		sender.sendFile();
 	}
 
@@ -68,24 +70,32 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 	public boolean sendFile() {
 		
 		try {
-			BufferedInputStream fileBuffer = new BufferedInputStream(new FileInputStream(fileName));
+			BufferedInputStream fileBuffer = new BufferedInputStream(new FileInputStream(new File(System.getProperty("user.dir"),fileName)));
 			socket = new UDPSocket(localPort);
 			socket.setSoTimeout((int)timeout);
-			MTU = socket.getReceiveBufferSize();
+			//MTU = socket.getReceiveBufferSize();
 			if(mode == 0)
 				stopAndWaitSend(fileBuffer, socket);
 			else if(mode == 1)
 				slidingWindowSend(fileBuffer, socket);
 			fileBuffer.close();
 		} catch (FileNotFoundException e) {
+			e.printStackTrace();
 			System.out.println("Please select an actual file.");
 		} catch (IOException e) {
+			e.printStackTrace();
+			System.out.println(MTU);
 			System.out.println("IO Error.");
 		}
 
 		return true;
 	}
 
+	private int min(int a, int b){
+		if(a <= b)
+			return a;
+		return b;
+	}
 	private void stopAndWaitSend(BufferedInputStream file, UDPSocket socket) throws IOException {
 		//ArrayList<Byte> buffer = new ArrayList<Byte>();
 
@@ -93,24 +103,21 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 		boolean acked = true;
 		int transmit = MTU;
 		do{
-			byte[] buffer = new byte[MTU];
+			byte[] buffer = new byte[min(file.available() + 2, MTU)];
 			if(acked){
-				int result = file.read(buffer, 2, MTU - 2);
-				byte[] header = new byte[2];
-				if(result < MTU - 2){
-					header = generatePacketHeader(false, true, seqNum);
-					buffer[0] = header[0];
-					buffer[1] = header[1];
-					if(result < 0)
-						transmit = 2;
-					else
-						transmit = result+2;
-				}else{
-					header = generatePacketHeader(false, false, seqNum);
-					buffer[0] = header[0];
-					buffer[1] = header[1];
-					transmit = MTU;
+				int result = 0;
+				if(file.available() > 0){
+					result = file.read(buffer, 2, buffer.length - 2);		
 				}
+				byte[] header = new byte[2];
+				boolean finishFlag = false;
+				if(file.available() > 0)
+					finishFlag = true;
+				header = generatePacketHeader(false, finishFlag, seqNum);
+				buffer[0] = header[0];
+				buffer[1] = header[1];
+				transmit = buffer.length;
+								
 			}
 			acked = false;
 			socket.send(new DatagramPacket(buffer, transmit,receiver));
