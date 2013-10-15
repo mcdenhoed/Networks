@@ -1,7 +1,8 @@
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.InetSocketAddress;
+import java.net.DatagramPacket;
+import java.net.InetAddress;
 import java.net.SocketException;
 
 import edu.utulsa.unet.UDPSocket;
@@ -9,14 +10,14 @@ import edu.utulsa.unet.UDPSocket;
 public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI{
 
 	private UDPSocket socket;
-	private InetSocketAddress receiver;
+	private InetAddress receiver;
 	private int mode;
 	private long windowSize;
 	private long timeout;
 	private String fileName;
 	private int localPort;
 	private int remotePort;
-
+	private int MTU;
 	
 	/**
 	 * @param args
@@ -58,16 +59,21 @@ public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI{
 			output = new FileOutputStream(fileName);
 			socket = new UDPSocket(localPort);
 			socket.setSoTimeout((int)timeout);
+			MTU = socket.getReceiveBufferSize();
+			receiver = socket.getInetAddress();
 		if(mode == 0)
 			stopAndWaitReceive(output, socket);
 		else if(mode == 1)
-			slidingWindowReceive();
+			slidingWindowReceive(output, socket);
 		else return false;
 		
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (SocketException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} finally{
@@ -82,12 +88,24 @@ public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI{
 
 	}
 
-	private void stopAndWaitReceive(FileOutputStream output, UDPSocket socket) {
+	private void stopAndWaitReceive(FileOutputStream output, UDPSocket socket) throws IOException {
 		// TODO Auto-generated method stub
-		
+		byte[] buffer = new byte[MTU];
+		DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+		do{
+			socket.receive(packet);
+			output.write(buffer, 2, packet.getLength()-2);
+			if(finishPacket(buffer)){
+				socket.send(new DatagramPacket(generatePacketHeader(true, true, sequence(buffer)), 2));
+				return;
+			}
+			else
+				socket.send(new DatagramPacket(generatePacketHeader(true, false, sequence(buffer)), 2));
+
+		}while(true);
 	}
 
-	private void slidingWindowReceive() {
+	private void slidingWindowReceive(FileOutputStream output, UDPSocket socket) throws IOException {
 		// TODO Auto-generated method stub
 		
 	}
@@ -103,6 +121,13 @@ public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI{
 		return header;
 	}
 	
+	private boolean finishPacket(byte[] packet){
+		return (packet[0]&2)==0;
+	}
+	
+	private byte sequence(byte[] packet){
+		return packet[1];
+	}
 	@Override
 	public void setFilename(String arg0) {
 		fileName = arg0;

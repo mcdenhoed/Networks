@@ -19,14 +19,14 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 	private String fileName;
 	private int localPort;
 	private int remotePort;
+	private int MTU;
 	/**
 	 * @param args
 	 */
 	public static void main(String[] args) {
 		//Papa's test code
 		RSendUDP sender = new RSendUDP();
-		sender.setMode(2);
-		sender.setModeParameter(512);
+		sender.setMode(0);
 		sender.setTimeout(10000);
 		sender.setFilename("important.txt");
 		sender.setLocalPort(23456);
@@ -71,6 +71,7 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 			BufferedInputStream fileBuffer = new BufferedInputStream(new FileInputStream(fileName));
 			socket = new UDPSocket(localPort);
 			socket.setSoTimeout((int)timeout);
+			MTU = socket.getReceiveBufferSize();
 			if(mode == 0)
 				stopAndWaitSend(fileBuffer, socket);
 			else if(mode == 1)
@@ -87,15 +88,16 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 
 	private void stopAndWaitSend(BufferedInputStream file, UDPSocket socket) throws IOException {
 		//ArrayList<Byte> buffer = new ArrayList<Byte>();
-		byte[] buffer = new byte[(int) windowSize];
+
 		byte seqNum = 0;
 		boolean acked = true;
-		int transmit = (int)windowSize;
+		int transmit = MTU;
 		do{
+			byte[] buffer = new byte[MTU];
 			if(acked){
-				int result = file.read(buffer, 2, (int)windowSize - 2);
+				int result = file.read(buffer, 2, MTU - 2);
 				byte[] header = new byte[2];
-				if(result < windowSize - 2){
+				if(result < MTU - 2){
 					header = generatePacketHeader(false, true, seqNum);
 					buffer[0] = header[0];
 					buffer[1] = header[1];
@@ -107,7 +109,7 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 					header = generatePacketHeader(false, false, seqNum);
 					buffer[0] = header[0];
 					buffer[1] = header[1];
-					transmit = (int)windowSize;
+					transmit = MTU;
 				}
 			}
 			acked = false;
@@ -116,8 +118,10 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 			if(ackPacket(buffer)){
 				acked = true;
 				seqNum++;
+				if(finishPacket(buffer)){
+					break;
+				}
 			}
-			
 				
 		}while(true);
 	}
@@ -138,12 +142,12 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 		return header;
 	}
 
-	private boolean ackPacket(byte[] header){
-		return (header[0]&1)==0;
+	private boolean ackPacket(byte[] packet){
+		return (packet[0]&1)==0;
 	}
 	
-	private boolean finishPacket(byte[] header){
-		return (header[0]&2)==0;
+	private boolean finishPacket(byte[] packet){
+		return (packet[0]&2)==0;
 	}
 	
 	@Override
