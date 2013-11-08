@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.util.Arrays;
+import java.util.HashMap;
 
 import edu.utulsa.unet.UDPSocket;
 
@@ -18,7 +20,9 @@ public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI{
 	private int localPort;
 	private int remotePort;
 	private int MTU;
-	
+	private int lowest_wanted = 0;
+	private int highest_wanted;
+	private HashMap<Integer, DatagramPacket> frames;
 	/**
 	 * @param args
 	 */
@@ -90,6 +94,7 @@ public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI{
 
 	private void stopAndWaitReceive(FileOutputStream output, UDPSocket socket) throws IOException {
 		// TODO Auto-generated method stub
+		/*
 		byte[] buffer = new byte[MTU];
 		DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
 		do{
@@ -97,37 +102,61 @@ public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI{
 			socket.receive(packet);
 			output.write(buffer, 2, packet.getLength()-2);
 			if(finishPacket(buffer)){
-				socket.send(new DatagramPacket(generatePacketHeader(true, true, sequence(buffer)), 2));
+				sendAck(sequence);
 				return;
 			}
 			else
 				socket.send(new DatagramPacket(generatePacketHeader(true, false, sequence(buffer)), 2));
 
 		}while(true);
+		*/
 	}
 
 	private void slidingWindowReceive(FileOutputStream output, UDPSocket socket) throws IOException {
-		// TODO Auto-generated method stub
+		boolean finished = true;
+		int seq = Integer.MIN_VALUE;
+		byte[] buffer = new byte[MTU];
+		highest_wanted = (int) (lowest_wanted + windowSize);
+		frames = new HashMap<Integer, DatagramPacket>((int) windowSize);
 		
+		while(!finished && !frames.isEmpty()){
+			//Receive a packet
+			DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+			socket.receive(packet);
+			seq = sequence(buffer);
+			if(finishPacket(buffer))
+				finished = true;
+			if(seq<=highest_wanted){
+				sendAck(seq);
+			}
+			
+			if(seq >= lowest_wanted && !frames.containsKey(seq)){
+				frames.put(seq, packet);
+			}
+			
+			while(frames.containsKey(lowest_wanted)){
+				output.write(packetData(packet.getData()));
+				frames.remove(lowest_wanted++);
+				highest_wanted++;
+			}
+		}
 	}
 
-	private byte[] generatePacketHeader(boolean ack, boolean finish, byte sequence){
-		byte packetFlags = 0;
-		if(ack)
-			packetFlags += 1;
-		if(finish)
-			packetFlags += 2;
+	private void sendAck(int seq){
 		
-		byte[] header = {packetFlags, sequence};
-		return header;
+		return;
 	}
 	
 	private boolean finishPacket(byte[] packet){
 		return (packet[0]&2)==0;
 	}
 	
-	private byte sequence(byte[] packet){
+	private int sequence(byte[] packet){
 		return packet[1];
+	}
+	
+	private byte[] packetData(byte[] packet){
+		return Arrays.copyOfRange(packet, 5, packet.length-5);
 	}
 	@Override
 	public void setFilename(String arg0) {
