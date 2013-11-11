@@ -29,7 +29,7 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 	public static void main(String[] args) {
 		//Papa's test code
 		RSendUDP sender = new RSendUDP();
-		sender.setMode(0);
+		sender.setMode(1);
 		sender.setTimeout(10000);
 		sender.setFilename("important.txt");
 		sender.setLocalPort(23456);
@@ -189,7 +189,7 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 			packetFlags += 2;
 		
 		byte[] header = {packetFlags, 0, 0, 0, 0};
-		for(int i = 0; i<=4; i++){
+		for(int i = 0; i<4; i++){
 			header[i+1] = ByteBuffer.allocate(4).putInt(sequence).array()[i];
 		}
 		return header;
