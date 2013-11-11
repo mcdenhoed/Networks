@@ -4,10 +4,10 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.DatagramPacket;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.nio.file.Path;
-import java.util.ArrayList;
+import java.net.SocketTimeoutException;
+import java.nio.ByteBuffer;
+import java.util.TreeMap;
 
 import edu.utulsa.unet.UDPSocket;
 
@@ -16,12 +16,13 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 	private UDPSocket socket;
 	private InetSocketAddress receiver;
 	private int mode;
-	private long windowSize;
+	private int windowSize;
 	private long timeout = 1000;
 	private String fileName;
 	private int localPort;
 	private int remotePort;
 	private int MTU = 1500;
+	private TreeMap<Integer, DatagramPacket> frames;
 	/**
 	 * @param args
 	 */
@@ -134,18 +135,63 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 	}
 
 	private void slidingWindowSend(BufferedInputStream file, UDPSocket socket) throws IOException{
-		// TODO Auto-generated method stub
+		int seq = 0;
+		byte[] ack_buffer = new byte[5];
+		frames = new TreeMap<Integer, DatagramPacket>();
 		
+		while(true){
+			while(file.available() > 0 && (frames.isEmpty() || (seq-frames.firstKey() <= windowSize))){
+				byte[] buffer = makePacket(false, seq, file);
+				frames.put(seq++, new DatagramPacket(buffer, buffer.length, receiver));
+			}
+			for(DatagramPacket packet: frames.values()){
+				socket.send(packet);
+			}
+			try{
+				while(true){
+					socket.receive(new DatagramPacket(ack_buffer, 5));
+					frames.remove(getSequenceNumber(ack_buffer));
+				}
+				
+			}catch(SocketTimeoutException e){
+				//timed out
+			}
+
+		}
 	}
 	
-	private byte[] generatePacketHeader(boolean ack, boolean finish, byte sequence){
+	private int getSequenceNumber(byte[] header){
+		return ByteBuffer.wrap(header, 1, 4).getInt();
+	}
+	private byte[] makePacket(boolean finish, int sequence, BufferedInputStream file){
+		byte[] header = generatePacketHeader(false, finish, sequence);
+		byte[] data;
+		byte[] result = header;
+		try {
+			data = new byte[min(file.available(), MTU)];
+			file.read(data);
+			result = new byte[header.length + data.length];
+			System.arraycopy(header, 0, result, 0, header.length);
+			System.arraycopy(data, 0, result, header.length, data.length);
+			return result;
+
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return result;
+	}
+	private byte[] generatePacketHeader(boolean ack, boolean finish, int sequence){
 		byte packetFlags = 0;
 		if(ack)
 			packetFlags += 1;
 		if(finish)
 			packetFlags += 2;
 		
-		byte[] header = {packetFlags, sequence};
+		byte[] header = {packetFlags, 0, 0, 0, 0};
+		for(int i = 0; i<=4; i++){
+			header[i+1] = ByteBuffer.allocate(4).putInt(sequence).array()[i];
+		}
 		return header;
 	}
 
@@ -177,8 +223,8 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI{
 
 	@Override
 	public boolean setModeParameter(long arg0) {
-		if(arg0 > 2)
-		windowSize = arg0;
+		if(arg0 > 5)
+		windowSize = (int)arg0;
 		else System.exit(-1);
 		return true;
 	}
