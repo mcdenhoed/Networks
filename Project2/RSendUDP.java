@@ -23,6 +23,13 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI {
 	private int remotePort;
 	private int MTU = 1500;
 	private TreeMap<Integer, DatagramPacket> frames;
+	private String startMessage = "Sender at %s attempting transmission on port %d using ";
+	private String stopAndWaitMessage = "Stop & Wait.\n";
+	private String slidingWindowMessage = "Sliding window, with window size = %s.\n";
+	private long endTime;
+	private long startTime;
+	private int bytes;
+	private int messages;
 
 	public RSendUDP(){
 		receiver = new InetSocketAddress("localhost", localPort);
@@ -35,7 +42,7 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI {
 		RSendUDP sender = new RSendUDP();
 		sender.setMode(0);
 		sender.setModeParameter(256);
-		sender.setTimeout(1000);
+		sender.setTimeout(1000);	
 		sender.setFilename("unet.properties");
 		sender.setLocalPort(23456);
 		sender.setReceiver(new InetSocketAddress("localhost", 32456));
@@ -86,11 +93,15 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI {
 			BufferedInputStream fileBuffer = new BufferedInputStream(
 					new FileInputStream(new File(
 							System.getProperty("user.dir"), fileName)));
-
-			if (mode == 0)
+			System.out.printf(startMessage, socket.getLocalAddress().toString(), localPort);
+			startTime = System.nanoTime();
+			if (mode == 0){
+				System.out.printf(stopAndWaitMessage);
 				stopAndWaitSend(fileBuffer, socket);
-			else if (mode == 1)
+			}else if (mode == 1){
+				System.out.printf(slidingWindowMessage, windowSize);
 				slidingWindowSend(fileBuffer, socket);
+			}
 			fileBuffer.close();
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
@@ -117,6 +128,7 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI {
 
 	private void slidingWindowSend(BufferedInputStream file, UDPSocket socket)
 			throws IOException {
+		boolean printStartMsg = true;
 		int seq = 0;
 		byte[] ack_buffer = new byte[5];
 		frames = new TreeMap<Integer, DatagramPacket>();
@@ -124,6 +136,7 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI {
 			while (file.available() > 0	&& (frames.isEmpty() || (seq - frames.firstKey() < windowSize))) {
 				byte[] buffer = makePacket(seq, file);
 				frames.put(seq++, new DatagramPacket(buffer, buffer.length,	receiver));
+				
 			}
 			if(frames.isEmpty()){
 				seq++;
@@ -131,45 +144,62 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI {
 			}
 			for (DatagramPacket packet : frames.values()) {
 				socket.send(packet);
+				System.out.printf("Sent packet #%d, containing %d bytes of data.\n", getSequenceNumber(packet.getData()), packet.getLength()-5);
+
 			}
 			try {
 				while (true) {
-					socket.receive(new DatagramPacket(ack_buffer, 5));
+					DatagramPacket p = new DatagramPacket(ack_buffer, 5);
+					socket.receive(p);
+					if(printStartMsg){
+						printStartMsg = false;
+						System.out.printf("'Connection' made to %s:%d\n", p.getAddress().toString(), p.getPort());
+
+					}
 					frames.remove(getSequenceNumber(ack_buffer));
+					System.out.printf("Received ACK for packet #%d\n", getSequenceNumber(ack_buffer));
+					messages++;
+
 				}
 
 			} catch (SocketTimeoutException e) {
 				//timed out
+				if(!frames.isEmpty())
+				System.out.println("Receive timed out. Resending buffered packets...");
 			}
 
 		}
+		/*
 		try{
 			while(!finishPacket(ack_buffer)){
 				socket.send(new DatagramPacket(generatePacketHeader(false, true, seq), 5, receiver));
 				socket.receive(new DatagramPacket(ack_buffer, 5));
 			}	
 		}catch(SocketTimeoutException e){
-			
-		}
-		/*while(!finishPacket(ack_buffer)){
+		}*/
+		
+		while(!finishPacket(ack_buffer)){
 			try{
 				socket.send(new DatagramPacket(generatePacketHeader(false, true, seq), 5, receiver));
 				socket.receive(new DatagramPacket(ack_buffer, 5));
 			} catch(SocketTimeoutException e){
 				//timed out
 			}
-		}*/
-
-		socket.setSoTimeout(socket.getSoTimeout()*4);
-		
-		
-		try{
-			socket.receive(new DatagramPacket(ack_buffer, 5));
-		}catch(SocketTimeoutException e){
-			//no ack received. Fine with it though.
 		}
+
+		
+		for(int i = 0; i < 10; i++){
+			socket.send(new DatagramPacket(generatePacketHeader(true, true, seq), 5, receiver));
+		}
+		endTime = System.nanoTime();
+		printSummary();
 	}
 
+	private void printSummary() {
+		int seconds = (int)((endTime-startTime)/Math.pow(10, 9));
+		System.out.printf("Complete! Transmitted %d bytes in %d messages over %d seconds", bytes, messages, seconds);
+	}
+	
 	private int getSequenceNumber(byte[] header) {
 		return ByteBuffer.wrap(header, 1, 4).getInt();
 	}
@@ -181,6 +211,7 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI {
 		try {
 			data = new byte[min(file.available(), MTU - 5)];
 			file.read(data);
+			bytes += data.length;
 			result = new byte[header.length + data.length];
 			System.arraycopy(header, 0, result, 0, header.length);
 			System.arraycopy(data, 0, result, header.length, data.length);
