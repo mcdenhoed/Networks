@@ -34,9 +34,7 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI {
 	public RSendUDP(){
 		receiver = new InetSocketAddress("localhost", localPort);
 	}
-	/**
-	 * @param args
-	 */
+
 	public static void main(String[] args) {
 		// Papa's test code
 		RSendUDP sender = new RSendUDP();
@@ -90,9 +88,9 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI {
 			if (MTU < 6)
 				throw new IOException("MTU must be at least 6");
 
-			BufferedInputStream fileBuffer = new BufferedInputStream(
-					new FileInputStream(new File(
-							System.getProperty("user.dir"), fileName)));
+			//BufferedInputStream fileBuffer = new BufferedInputStream(new FileInputStream(new File(System.getProperty("user.dir"), fileName)));
+			BufferedInputStream fileBuffer = new BufferedInputStream(new FileInputStream(new File(fileName)));
+			
 			System.out.printf(startMessage, socket.getLocalAddress().toString(), localPort);
 			startTime = System.nanoTime();
 			if (mode == 0){
@@ -249,19 +247,33 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI {
 
 	@Override
 	public void setFilename(String arg0) {
-		fileName = arg0;
+		if((new File(arg0)).exists())
+			fileName = arg0;
+		else{
+			System.out.println("File does not exist! Check filename.");
+			System.exit(-1);
+		}
 		return;
 	}
 
 	@Override
 	public boolean setLocalPort(int arg0) {
-		localPort = arg0;
+		if(0 < arg0 && arg0 <= 65535)
+			localPort = arg0;
+		else{
+			System.out.println("Invalid port number! Must be between 0 and 65535.");
+		}
 		return true;
 	}
 
 	@Override
 	public boolean setMode(int arg0) {
-		mode = arg0;
+		if(mode == 0 || mode == 1)
+			mode = arg0;
+		else{
+			System.out.println("Invalid mode! 0 for Stop and Wait; 1 for Sliding Window");
+			System.exit(-1);
+		}
 		return true;
 	}
 
@@ -269,20 +281,32 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI {
 	public boolean setModeParameter(long arg0) {
 		if (arg0 > 0)
 			windowSize = (int) arg0;
-		else
+		else{
+			System.out.println("Invalid window size! Must be a positive integer.");
 			System.exit(-1);
+		}
 		return true;
 	}
 
 	@Override
 	public boolean setReceiver(InetSocketAddress arg0) {
-		receiver = arg0;
+		if(arg0 != null)
+			receiver = arg0;
+		else{
+			System.out.println("Must specify a receiver");
+			System.exit(-1);
+		}
 		return true;
 	}
 
 	@Override
 	public boolean setTimeout(long arg0) {
-		timeout = arg0;
+		if(arg0 > 0)
+			timeout = arg0;
+		else{
+			System.out.println("Invalid timeout! Must be a positive integer!");
+			System.exit(-1);
+		}
 		return true;
 	}
 
