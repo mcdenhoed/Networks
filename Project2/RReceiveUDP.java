@@ -37,9 +37,9 @@ public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI {
 	 */
 	public static void main(String[] args) {
 		RReceiveUDP receiver = new RReceiveUDP();
-		receiver.setMode(0);
+		receiver.setMode(1);
 		receiver.setModeParameter(256);
-		receiver.setFilename("less_important.txt");
+		receiver.setFilename("screeny2.png");
 		receiver.setLocalPort(32456);
 		receiver.receiveFile();
 	}
@@ -120,18 +120,19 @@ public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI {
 		byte[] buffer = new byte[MTU];
 		highest_wanted = (int) (lowest_wanted + windowSize);
 		frames = new TreeMap<Integer, byte[]>();
-
+		boolean initialized = false;
 		while (!finished) {
 			// Receive a packet
 			DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
 			receivePacket(packet);
 			byte[] message = Arrays.copyOf(buffer, packet.getLength());
 			seq = getSequenceNumber(message);
-			if (seq == 0) {
+			if (!initialized) {
+				initialized = true;
 				receiver = packet.getAddress();
 				remotePort = packet.getPort();
 				System.out.printf("'Connection' made to %s:%d\n", packet.getAddress().toString(), packet.getPort());
-				// socket.connect(receiver, remotePort);
+				socket.connect(receiver, remotePort);
 			}
 			if (finishPacket(message)) {
 				finished = true;
@@ -245,7 +246,7 @@ public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI {
 			localPort = arg0;
 		else{
 			System.out.println("Invalid port number! Must be between 0 and 65535");
-			System.exit(-1);
+			return false;
 		}
 		return true;
 	}
@@ -256,7 +257,7 @@ public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI {
 			mode = arg0;
 		else{
 			System.out.println("Invalid mode! 0 for Stop and Wait; 1 for Sliding Window");
-			System.exit(-1);
+			return false;
 		}
 		return true;
 	}
@@ -267,6 +268,7 @@ public class RReceiveUDP implements edu.utulsa.unet.RReceiveUDPI {
 			windowSize = arg0;
 		else{
 			System.out.println("Invalid WindowSize! Must be a positive integer.");
+			return false;
 		}
 		return true;
 	}

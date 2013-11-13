@@ -16,12 +16,12 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI {
 	private UDPSocket socket;
 	private InetSocketAddress receiver;
 	private int mode = 0;
-	private int windowSize;
+	private int windowSize = 256;
 	private long timeout = 1000;
 	private String fileName;
 	private int localPort = 12987;
 	private int remotePort;
-	private int MTU = 1500;
+	private int MTU;
 	private TreeMap<Integer, DatagramPacket> frames;
 	private String startMessage = "Sender at %s attempting transmission on port %d using ";
 	private String stopAndWaitMessage = "Stop & Wait.\n";
@@ -32,16 +32,16 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI {
 	private int messages;
 
 	public RSendUDP(){
-		receiver = new InetSocketAddress("localhost", localPort);
+		receiver = new InetSocketAddress("localhost", 32456);
 	}
 
 	public static void main(String[] args) {
 		// Papa's test code
 		RSendUDP sender = new RSendUDP();
-		sender.setMode(0);
+		sender.setMode(1);
 		sender.setModeParameter(256);
 		sender.setTimeout(1000);	
-		sender.setFilename("unet.properties");
+		sender.setFilename("screeny.png");
 		sender.setLocalPort(23456);
 		sender.setReceiver(new InetSocketAddress("localhost", 32456));
 		sender.sendFile();
@@ -247,12 +247,7 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI {
 
 	@Override
 	public void setFilename(String arg0) {
-		if((new File(arg0)).exists())
-			fileName = arg0;
-		else{
-			System.out.println("File does not exist! Check filename.");
-			System.exit(-1);
-		}
+		fileName = arg0;
 		return;
 	}
 
@@ -260,19 +255,21 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI {
 	public boolean setLocalPort(int arg0) {
 		if(0 < arg0 && arg0 <= 65535)
 			localPort = arg0;
+			
 		else{
 			System.out.println("Invalid port number! Must be between 0 and 65535.");
+			return false;
 		}
 		return true;
 	}
 
 	@Override
 	public boolean setMode(int arg0) {
-		if(mode == 0 || mode == 1)
+		if(arg0 == 0 || arg0 == 1)
 			mode = arg0;
 		else{
 			System.out.println("Invalid mode! 0 for Stop and Wait; 1 for Sliding Window");
-			System.exit(-1);
+			return false;
 		}
 		return true;
 	}
@@ -283,7 +280,7 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI {
 			windowSize = (int) arg0;
 		else{
 			System.out.println("Invalid window size! Must be a positive integer.");
-			System.exit(-1);
+			return false;
 		}
 		return true;
 	}
@@ -294,7 +291,7 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI {
 			receiver = arg0;
 		else{
 			System.out.println("Must specify a receiver");
-			System.exit(-1);
+			return false;
 		}
 		return true;
 	}
@@ -305,7 +302,7 @@ public class RSendUDP implements edu.utulsa.unet.RSendUDPI {
 			timeout = arg0;
 		else{
 			System.out.println("Invalid timeout! Must be a positive integer!");
-			System.exit(-1);
+			return false;
 		}
 		return true;
 	}
