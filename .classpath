@@ -3,6 +3,7 @@
 	<classpathentry exported="true" kind="lib" path="Project2/unet.jar"/>
 	<classpathentry kind="src" path="Project1"/>
 	<classpathentry excluding="example/" kind="src" path="Project2"/>
+	<classpathentry kind="src" path="Project3"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
