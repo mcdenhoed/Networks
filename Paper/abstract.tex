@@ -1,0 +1,155 @@
+\documentclass[letterpaper, titlepage, 12pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[backend=bibtex]{biblatex}
+\bibliography{bib}
+\author{Mark DenHoed}
+\title{A Survey of the TOR Network}
+\date{\today}
+\setcounter{secnumdepth}{1}
+\usepackage{amsmath}
+\usepackage{url}
+\def\UrlBreaks{\do\/\do-}
+
+%\usepackage[square]{natbib}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+TOR (The Onion Router) is an online network intended for privacy, security, and anonymity.  Requests made through the TOR network are encrypted and passed through many TOR nodes before being made to the original target. \cite{hi} This circuitous routing makes TOR excellent for security and anonymity, but also lends it to illegal activities, such as ``Silk Road'' \cite{silk} the online drug store and many other ``TOR hidden services''. Whatever its ethical and legal issues, TOR remains a fascinating technology with interesting applications.
+\end{abstract}
+\newpage
+\tableofcontents
+\newpage
+\section{Introduction}
+TOR is an improvement on the original Onion Routing protocol patented by the United States Navy. The original protocol had several issues which reduced its effectiveness and adopt-ability. TOR addressed these security and convenience issues, dubbing itself the ``second generation'' of the Onion Router\cite{whitepaper}.
+
+Though TOR wasn't the first onion router, it is, by far, the most commonly-used implementation available. For this reason, it tends to come up in both academic and news articles as a topic of interest.
+\section{Technical Overview}
+\subsection{Motivation}
+The goal of onion routing is to prevent an adversary from attributing network traffic to a given user. Simple encryption is not enough to solve this problem because even if the data being sent to and from the destination is encrypted, both the originator and recipient are known by looking at the headers. Onion Routing solves this problem by repeatedly encrypting and routing requests through several ``relay'' nodes.
+
+Though TOR emphasizes anonymity, the writers of TOR wanted to have a protocol that is widely usable. Therefore, TOR attempts to strike a balance between anonymity, usability, and speed.
+
+As such, TOR is a ``low-latency'' network. It delivers traffic as fast as it can (as opposed to high-latency networks, which introduce artificial delay in their transmissions in order to prevent timing analysis). This security/convenience balance is evident in much of TOR's design and default settings and behaviors.
+
+\subsection{Terminology}
+Onion Routing has several bits of related technical jargon. An overview of these terms will be helpful in a discussion of Onion Routing.
+
+\begin{description}
+\item[Circuits] The onion network routes packets by establishing circuits: paths through the onion network. Circuits are created dynamically for a given user and can be reconfigured at will. If a node in the circuit detects that something is amiss in the circuit (ie. messages do not decrypt properly), then it can reconfigure and rebuild the circuit downstream at will.
+\item[Onion Router] An onion router (OR) is part of the backbone of the onion routing network. It is a host on the internet that accepts incoming circuits and forwards them to other onion routers. Some onion routers are referred to as ``exit nodes''. These nodes advertise to the network that they are willing to make requests to the outside internet. Requests made to the TOR network eventually end up at exit nodes which make the original request.
+\item[Onion Proxy] An onion proxy is a piece of software that serves as a client to the onion network. A user usually runs their own proxy, though they may use one operated by another (though it is not recommended).
+\item[Cells] Onion routing uses the word ``cell'' to refer to its packets. Cells are a fixed size (512 bytes) to confound traffic analysis. They come in two varieties.
+	\begin{description}
+		\item[Control] Controls cells are used to set up and tear down circuits. There are several different control cell types:
+		\begin{description}
+			\item[Padding] The name of this cell is a bit of a misnomer as its actual use is as a heartbeat signal between nodes.
+			\item[Create (and an ACK)] This command indicates that a new circuit is being set up.
+			\item[Destroy] This command is used to request nodes to tear down a given circuit. Rather than signaling a reconfiguration, they signal that the circuit is no longer needed and should permanently be destroyed.
+		\end{description}
+		\item[Relay] Relay cells serve several functions. Once a circuit has been established, they are used to add or delete nodes from the circuit (allowing dynamic reconfiguration of an existing circuit). They are also the cells used to transmit requests and responses end-to-end across the circuit.
+	\end{description}
+\end{description}
+
+\subsection{TOR Client Operation}
+It is easiest to explain TOR's operation with a short example. Suppose that Alice wants to anonymously access Bob's web service (let's say bob runs \verb+http:\\www.utulsa.edu\+. First, she must have access to an OP. Alice's OP will set up a circuit through the TOR network one link at a time. 
+\subsubsection{Establishing a circuit}
+Using public key cryptography, Alice ($A$) negotiates a secure connection to the first router $r_1$ in the circuit with a special ``cell'' (TOR's name for its packets). Then, Alice negotiates a secure connection to the second router $r_2$ that she has chosen (from a published list of TOR routers). 
+
+However, Alice routes this negotiation through $r_1$, and encrypts the entire transaction with the session key ($K_{r_1A}$)it negotiated with $r_1$. When $r_1$ receives the cell, it decrypts it and transmits the connection information to $r_2$, which then replies in similar kind through $r_1$. $r_1$ encrypts the response with ($K_{r_1A}$). Alice uses $K_{r_1A}$ to decrypt the data, and a connection is established with $r_2$.
+
+Now, suppose that Alice wants to establish a connection with a third node in the network (for our purposes, we'll assume it's an exit node). Alice would encrypt the beginning of the handshake with $r_2$, and then \emph{again} with $r_1$. This is then sent to $r_1$, which decrypts the cell, reads from the cell that $r_1$ is asked to forward it to $r_2$ and then sends it on its way. $r_2$ decrypts the cell and sends the handshake packet(s) to $r_3$. $r_2$ encrypts the response with its key and returns it to $r_1$. From there, the response is handled as before.
+
+Though I have presented this process as happening at the beginning of a transaction, the reality is that Alice's OP will have already set up a TOR circuit before any requests are made. This is done preemptively because it can be a time-consuming process and the designers of TOR wanted to make the network more convenient to use.
+
+Additionally, though this paper presents an example using three ORs, there is no hard-coded limit to the number of hops you need for a TOR connection (although there is a hard lower bound of 3).
+
+By default, TOR clients tend to build circuits containing 3 ORs anyway. This is because, though additional ORs in the circuit improve anonymity, they also slow down connection. Often the amount of anonymity gained by additional hops is not worth the amount of slowdown that occurs (even with 3 hops, TOR tends to be painfully slow compared to a direct network connection).
+\subsubsection{Sending a Message}
+Now that Alice has her TOR circuit set up, she's ready to talk to Bob. She makes a request for Bob through her OP. In practice, TOR supports a ``leaky-pipe'' topology (multiple exit nodes in one circuit). This allows a sender to specify a different exit node for each request (improving anonymity by confounding traffic analysis and improving network performance by allowing load-balancing within a circuit). In our case, we only have one exit node, so this will always be the node our OP selects.
+
+Alice's OP selects $r_3$ as the exit node (as we knew it would) and encrypts our message with $K_{r_3A}$, $K_{r_2A}$, and $K_{r_1A}$ in that order. At each step of the circuit to $r_3$ the corresponding $r$ decrypts the message with its session key and sends it on to the next step. Once the original message is decrypted by $r_3$, $r_3$, the exit node, forwards the message on to Bob's service. The response from Bob is similarly re-encrypted with each key as it is sent back to Alice, who is able to decrypt with each of the session keys.
+
+\subsubsection{Circuit Teardown}
+Once Alice is done with Bob's web service, she can initiate a tear-down of her TOR circuit. This is done using the ``destroy'' control packet. Teardown is done in the exact opposite manner as the set up: The connection is taken down link by link starting with the end until every session all the way back to Alice has been closed.
+
+\subsection{TOR Hidden Services}
+TOR allows for web services to take advantage of TOR's anonymity. Normally, to access a web service, the service must publish its IP-address to some index. TOR hidden services instead allow a web service to publish a set of TOR nodes (dubbed ``introduction points'') at which it will accept a connection. 
+
+Someone wanting to access the service will choose an OR to be their ``rendezvous point'' and send that information to the introduction point. At this point, the web service can decide whether it wants to respond to or ignore the request. If it responds, it makes a connection to the ``rendezvous point'' and the connection is made. From there, the clients can interact over the circuit as if they were on the outside internet.
+\subsection{Improvements}
+The TOR design makes several improvements over the original onion router design. Many of these were done due to lessons learned from the original implementation. Some, such as telescoping circuits\cite{antecipate} also had the added advantage of not infringing on the original US Navy patent on Onion Routing\cite{patent}
+\subsubsection{SOCKS Proxy}
+The original onion network required applications to implement their own special proxy layer to talk to the onion network. This was a very high barrier to entry for different protocols and severely limited adoption. By making TOR understand the SOCKS proxy interface\cite{whitepaper}, the designers of TOR opened TOR up for use by any TCP protocol.
+\subsubsection{Perfect Forward Secrecy}
+In the original version of the onion router, OPs and ORs used permanent keys for communication. TOR uses a system called ``telescoping circuits''. As mentioned above, Alice, using a Diffie-Hellman key exchange, negotiates a symmetric session key with each node on the circuit. This key is ephemeral and can be rotated as needed. Telescoping circuits ensure Perfect Forward Secrecy because even if the session key is compromised, the compromise only lasts for the duration of that session, until the key is rotated\cite{antecipate}. Also, since there is a different session key for each link, only one link in the chain is compromised in this situation: the rest of the exchange is still encrypted (and even on the compromised line, the forwarded data is encrypted with another key; only the cell header is compromised).
+\subsubsection{Lower TCP Overhead}
+The original onion router would build new circuits for each type of application request. This required expensive Diffie-Hellman exchanges for each circuit. It also presented a vulnerability in that multiple circuits can more likely identify a user\cite[p.~1]{whitepaper}.
+\subsection{Weaknesses}
+In spite of its good design, TOR has some undeniable weaknesses. There are also anonymity and privacy concerns that TOR does not concern itself with. For instance, TOR is designed to protect anonymous transactions, but not TRUE anonymity: 
+\subsubsection{DNS}
+Suppose Alice wants to privately visit Bob's website through the TOR network. She opens up her TOR browser and does what a person normally does: she types in the name of Bob's website. Normally, this does not pose a problem, but since TOR is intended to hide the source and destination of traffic, the DNS request generated by attempting to navigate to the host name is an issue\cite{whitepaper}.
+
+The makers of TOR have worked around this security flaw by recommending the use of (and setting to default in their packaged TOR client) Privoxy: a proxy service that strips out as much data as possible from headers and avoids unnecessary DNS lookups. This is still, however, a work-around, and a universal solution to this problem has, as of the publication of \cite{whitepaper}, not solved.
+\subsubsection{Timing Analysis}
+An adversary can potentially subvert the anonymity provided by TOR by sniffing the traffic of an exit node. From the patterns of this traffic, it is possible to draw patterns from the timings and sorts of requests made.  If this data can be correlated with the timings of requests made to an entry node then it is very possible for the adversary to tie traffic to an identity.
+
+\subsubsection{Insufficient TOR Nodes}
+TOR relies on the network having a certain size in order to provide anonymity. A network that is too small does not provide anonymity because there are fewer possible circuits through the network, making paths easier to guess. Also, fewer nodes in the network implies fewer users, which constrains the possible set of people on the network. If the knowledge that Alice uses TOR can alone identify her to be a member of a small set of individuals, then unless Alice is worried purely about legal culpability for her online actions, there is little point in using TOR.
+
+Additionally, even if the TOR network is of an acceptable size, there must be a large number of entry and exit nodes. Otherwise, an adversary can easily track and/or correlate traffic to and from the network.
+
+\subsubsection{Malicious TOR Nodes}
+If an adversary can compromise, control, or sponsor a node, it can help them to reduce the anonymity of the system. Malicious nodes would aid the adversary in doing traffic analysis. The functioning of the TOR network can be affected by the bandwidth reports of this node (perhaps by influencing the network to route more traffic through the bad node). A very powerful adversary could potentially take over an entire circuit one-by-one\cite{whitepaper}. However, the online nature of circuits limits the threat of this type of attack. Even so, the more nodes an adversary controls, the more traffic they can track and correlate.
+
+It is also possible that an adversary just has the general goal of harming the speed and efficiency of the TOR network. Such an adversary could set up a malicious node that reports an artificially high available bandwidth\cite{5560675}. This erroneous self-reporting will cause many nodes in the network to attempt to route through the malicious node, which will not be able to handle the traffic as quickly as hoped. This will decrease overall network performance.
+
+\section{In The News}
+A couple of recent news stories of thrust TOR from the obscurity it enjoyed into the headlines this past year. 
+
+\subsection{Silk Road}
+In the fall of 2013, the federal government took down Silk Road: an online drug (and other illegal things) store\cite{reuters} and arrested its alleged founder. Silk Road was hosted as a TOR hidden service and was one of the most well-known cites to buy drugs/illegal substances on the internet. Silk Road provides an excellent example of the darker side of the anonymity that TOR provides.
+
+As a testament to the slippery nature of TOR hidden services, just a week or two after the founder was arrested, another ``Silk-Road-like'' service appeared as a hidden service (presumably under different management)\cite{silkroad2}. Of course, just days before this was written, one of these competitors suddenly disappeared\cite{shutdown}: anonymity has drawbacks for the consumer.
+
+\subsection{The FBI and TOR}
+In another recent news story involving the FBI and TOR, the FBI admitted to being behind an attempt to compromise the anonymity of TOR\cite{freedom}. The FBI took over the servers run by a company named ``Freedom Hosting'', one of the largest providers of TOR nodes. Since Freedom Hosting held a large part of the TOR network, the FBI was able to use its sway to redirect many TOR hidden services to a ``Down for Maintenance\cite{freedom}'' page that contained malware targeted against Firefox 17 (around which the most popular TOR browser is based).
+
+This provides an excellent example of what a very strong adversary can do against TOR. By placing itself into a trusted position, the FBI was able to serve up malware to a large number of users to get identifiable information about them. By compromising enough of the network, the adversary was able to shortcut traffic analysis and directly track users.
+
+A concern with all of the recent press is about TOR is that it will scare users away from using the service. If that happens, and the number of TOR users (and, more importantly, TOR Router hosts) goes down, then the service would be considerably weakened against those who would want to break it.
+
+In the author's estimation, recent press coverage, combined with the inherent risk of running an exit node (due to all of the unscrupulous traffic that can come out of them) might be enough to scare off would-be users.
+
+\section{Current Research}
+Since TOR is the most popular anonymity network in the world, it is often the object of speculation and research (much of it into possible security flaws). Most of my understanding from TOR came from the very helpful operational overview published by the TOR project that I've referenced in \cite{whitepaper}. 
+
+\subsection{Encoding Signals in Cell Counts}
+In the course of researching for this paper, however, I came across one paper in particular which got my intention. In this paper\cite{6132443}, the researchers looked at a way that an adversary might easily compromise sections of the network. The paper uses an ``active watermarking technique'' to obtain the results.
+
+\subsubsection{Active vs. Passive}
+A passive traffic analysis attack refers to looking at existing traffic on the TOR network and attempting to draw correlations and infer identities from it. No additional traffic is injected or needed. 
+
+In an active attack, the adversary injects traffic into the network in an attempt to find patterns corresponding to their traffic. In an active watermarking attack, the attacker injects traffic into the network that is specially marked in some way. The goal is for the attacker to be able to encode some sort of information into the traffic that can be read by a co-conspirator in order to perform the same sorts of analyses mentioned before.
+
+\subsubsection{The Presented Technique}
+In this particular case, the ``watermarking'' scheme is outside the cell level. The researchers in \cite{6132443} required control of two nodes in the network. One of the nodes varies the number of relay cells in its send queue over several iterations of sending. Using this, it is able to encode shorts bursts of signal into its transmissions.
+
+An accomplice sitting at another node can, using the techniques in this paper, detect these signals with ``approaching 100\% confidence''\cite{6132443} with almost no false positives. The short duration of the signals makes the technique very difficult to detect, and yields a quick result for the adversaries.
+
+\subsection{Security and Speed through Load Balancing}
+
+In another paper, researchers sought to solve open issues in both speed and anonymity with a single technique. In an earlier discussion in this paper, it was mentioned that a malicious node could report an artificially high bandwidth to the network, resulting in a slowdown.
+
+The researchers in \cite{5560675}, in addition to seeing this issue, noted that even well-intentioned nodes, due to the fast-changing nature of network traffic, do not have accurate self-reporting, thus operating at below optimal capacity.
+
+\subsubsection{Load Balancing}
+
+Instead, they present a new load balancing technique for the TOR network. In this method, instead of each node self-reporting their speed, the load-balancing for each node is crowd-sourced to the entire network. Routers make routing decisions based on their previous experiences with the rest of the routers (this assumes that most routers in the network at some point talk to other routers in the network). Since routers will slow down as they get more traffic, this kind of load balancing should automatically account for overworked nodes\cite{5560675}.
+
+\subsubsection{Additional Results}
+
+This method of load balancing, in addition to resulting in a faster and more flexible network topology, also puts individual ORs (and, thus, the end-users) in control of their routing decisions. Using this method, a user can ``tune'' their circuits to support more anonymity, or optimize them for speed. The paper authors even claim that \emph{both} are possible at the same time.
+\newpage
+\printbibliography
+\end{document}
