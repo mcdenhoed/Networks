@@ -91,7 +91,11 @@ public class HttpServer {
 		}
 		
 		private void badRequest(OutputStreamWriter o) throws IOException{
-			
+			String response = "HTTP/1.1 400 Bad Request.\r\n";
+			response += entity(0, "");
+			System.out.println(response);
+			o.write(response);
+			o.flush();
 		}
 		
 		private void notFound(OutputStreamWriter o) throws IOException{
@@ -113,6 +117,7 @@ public class HttpServer {
 			response += "Content-Type: 0";
 			o.write(response);
 			o.flush();
+			System.out.println(response);
 		}
 		public void run(){
 			try {
@@ -150,7 +155,7 @@ public class HttpServer {
 				try {
 					socket.close();
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
+					// TODO Auto-generated catch blocks
 					e.printStackTrace();
 				}
 			}
