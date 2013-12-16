@@ -1,8 +1,10 @@
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -25,7 +27,7 @@ public class HttpServer {
 		}
 		
 		
-		private void handleGET(OutputStreamWriter o, ArrayList<String> request) throws IOException{
+		private void GET(OutputStream o, ArrayList<String> request) throws IOException{
 			if(!containsHostline(request)){
 				badRequest(o);
 				return;
@@ -51,17 +53,18 @@ public class HttpServer {
 				String response = "HTTP/1.1 200 \r\n";
 				response += entity((int)f.length(), type);
 				response += "\r\n";
+
 				
-				char[] yolo = new char[response.length() + fileData.length];
-				System.arraycopy(response.toCharArray(), 0, yolo,  0, response.length());
-				System.arraycopy(new String(fileData).toCharArray(), 0, yolo, response.length(), fileData.length);
+				byte[] yolo = new byte[response.length() + fileData.length];
+				System.arraycopy(response.getBytes(), 0, yolo,  0, response.length());
+				System.arraycopy(fileData, 0, yolo, response.length(), fileData.length);
 				o.write(yolo);
-				o.flush();
-				System.out.println(yolo);
+				System.out.println(response);
+				
 			}else notFound(o);
 		}
 
-		private void handleHEAD(OutputStreamWriter o, ArrayList<String> request) throws IOException{
+		private void HEAD(OutputStream o, ArrayList<String> request) throws IOException{
 			if(!containsHostline(request)){
 				badRequest(o);
 				return;
@@ -84,45 +87,45 @@ public class HttpServer {
 				response += entity((int)f.length(), type);
 				response += "\r\n";
 				
-				o.write(response);
+				o.write(response.getBytes());
 				o.flush();
 				System.out.println(response);
 			}else notFound(o);
 		}
 		
-		private void badRequest(OutputStreamWriter o) throws IOException{
+		private void badRequest(OutputStream o) throws IOException{
 			String response = "HTTP/1.1 400 Bad Request.\r\n";
 			response += entity(0, "");
 			System.out.println(response);
-			o.write(response);
+			o.write(response.getBytes());
 			o.flush();
 		}
 		
-		private void notFound(OutputStreamWriter o) throws IOException{
+		private void notFound(OutputStream o) throws IOException{
 			
 			String response = "HTTP/1.1 404 File not found.\r\n";
 			response += entity(0, "");
 			System.out.println(response);
-			o.write(response);
+			o.write(response.getBytes());
 			o.flush();
 		}
 		
 		private String entity(int length, String type){
 			return "Server: yoloswag/0.01\r\nContent-Length: " + length + "\r\nContent-Type: " + type + "\r\n";
 		}
-		private void notImplemented(OutputStreamWriter o) throws IOException{
+		private void notImplemented(OutputStream o) throws IOException{
 			String response = "HTTP/1.1 501 This functionality is not implemented yet. \r\n";
 			response += "Server: yoloswag/0.01\r\n";
 			response += "Content-Length: 0\r\n";
 			response += "Content-Type: 0";
-			o.write(response);
+			o.write(response.getBytes());
 			o.flush();
 			System.out.println(response);
 		}
 		public void run(){
 			try {
 				BufferedReader r = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-				OutputStreamWriter o = new OutputStreamWriter(socket.getOutputStream());
+				OutputStream o = socket.getOutputStream();
 				ArrayList<String> request = new ArrayList<String>();
 				String temp = r.readLine();
 				while(temp != null && !temp.equals("")){
@@ -135,10 +138,10 @@ public class HttpServer {
 					try{
 						switch(method[0]){
 						case "GET":
-							handleGET(o, request);
+							GET(o, request);
 							break;
 						case "HEAD":
-							handleHEAD(o, request);
+							HEAD(o, request);
 							break;
 						default:
 							notImplemented(o);
